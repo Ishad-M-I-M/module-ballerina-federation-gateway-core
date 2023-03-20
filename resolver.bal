@@ -48,7 +48,7 @@ public class Resolver {
 
                 path = path.slice(0, path.length() - 1);
 
-                string? requiredFields = self.queryPlan.get('record.parent).fields.get('record.'field.getName()).requires;
+                string[]? requiredFields = self.queryPlan.get('record.parent).fields.get('record.'field.getName()).requires;
 
                 map<json>[] requiredFieldWithValues = check self.getRequiredFieldsInPath(self.result, self.resultType, clientName, path, requiredFields);
 
@@ -183,14 +183,13 @@ public class Resolver {
 
     // Get the values of required fields from the results.
     // Don't support @ in the path.
-    isolated function getRequiredFieldsInPath(json pointer, string pointerType, string clientName, string[] path, string? requiredFields = ()) returns map<json>[]|error {
+    isolated function getRequiredFieldsInPath(json pointer, string pointerType, string clientName, string[] path, string[]? requiredFields = ()) returns map<json>[]|error {
         if path.length() == 0 {
             string key = self.queryPlan.get(pointerType).keys.get(clientName);
             string[] requiredFieldMapKeys = [key];
 
-            if requiredFields is string {
-                // TODO: fetch the required fields from by processing the requires field string
-
+            if requiredFields is string[] {
+                requiredFieldMapKeys.push(...requiredFields);
             }
 
             map<json>[] fields = [];
