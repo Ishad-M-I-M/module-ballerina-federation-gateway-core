@@ -5,11 +5,18 @@ public type unResolvableField record {|
     graphql:Field 'field;
 |};
 
+public type requiresFieldRecord record {|
+    string clientName;
+    string fieldString;
+|};
+
 public type fieldRecord record {|
     readonly string name;
     string 'type;
     string 'client;
-    string[] requires?;
+    // In query plan generation need to process the required field string and seperate the fields and the client
+    // which will resolve it.
+    requiresFieldRecord[] requires?;
 |};
 
 public type queryPlanEntry record {|
