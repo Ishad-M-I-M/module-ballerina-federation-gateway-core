@@ -1,3 +1,4 @@
+import ballerina/lang.value;
 import ballerina/graphql;
 
 public class Resolver {
@@ -48,7 +49,7 @@ public class Resolver {
 
                 path = path.slice(0, path.length() - 1);
 
-                string[]? requiredFields = self.queryPlan.get('record.parent).fields.get('record.'field.getName()).requires;
+                requiresFieldRecord[]? requiredFields = self.queryPlan.get('record.parent).fields.get('record.'field.getName()).requires;
 
                 map<json>[] requiredFieldWithValues = check self.getRequiredFieldsInPath(self.result, self.resultType, clientName, path, requiredFields);
 
@@ -183,30 +184,23 @@ public class Resolver {
 
     // Get the values of required fields from the results.
     // Don't support @ in the path.
-    isolated function getRequiredFieldsInPath(json pointer, string pointerType, string clientName, string[] path, string[]? requiredFields = ()) returns map<json>[]|error {
+    isolated function getRequiredFieldsInPath(json pointer, string pointerType, string clientName, string[] path, requiresFieldRecord[]? requiredFields = ()) returns map<json>[]|error {
         if path.length() == 0 {
             string key = self.queryPlan.get(pointerType).keys.get(clientName);
-            string[] requiredFieldMapKeys = [key];
-
-            if requiredFields is string[] {
-                requiredFieldMapKeys.push(...requiredFields);
-            }
 
             map<json>[] fields = [];
             if pointer is json[] {
                 foreach var element in pointer {
-                    map<json> fieldValues = {};
-                    foreach var requiredField in requiredFieldMapKeys {
-                        fieldValues[requiredField] = (<map<json>>element)[requiredField];
-                    }
+                    map<json> keyField = {};
+                    keyField[key] = (<map<json>>element)[key];
+                    map<json> fieldValues = check self.fetchRequiredFields(requiredFields, keyField, pointerType);
                     fields.push(fieldValues);
                 }
             }
             else if pointer is map<json> {
-                map<json> fieldValues = {};
-                foreach var requiredField in requiredFieldMapKeys {
-                    fieldValues[requiredField] = (<map<json>>pointer)[requiredField];
-                }
+                map<json> keyField = {};
+                keyField[key] = (<map<json>>pointer)[key];
+                map<json> fieldValues = check self.fetchRequiredFields(requiredFields, keyField, pointerType);
                 fields.push(fieldValues);
             }
             else {
@@ -223,4 +217,21 @@ public class Resolver {
         return self.getRequiredFieldsInPath(newPointer, fieldType, clientName, path, requiredFields);
     }
 
+    // Fetch the fields from subgraphs and add them to the fieldValues map.
+    isolated function fetchRequiredFields(requiresFieldRecord[]? requiresFields, map<json> fieldValues, string typeName) returns map<json>|error {
+        if requiresFields is () {
+            return fieldValues;
+        }
+
+        map<json> newFieldValues = fieldValues.clone();
+        foreach requiresFieldRecord 'record in requiresFields {
+            string queryString = wrapWithEntityRepresentation(typeName, [fieldValues], 'record.fieldString);
+            graphql:Client 'client = self.clients.get('record.clientName);
+
+            EntityResponse response = check 'client->execute(queryString);
+            newFieldValues = check (check value:mergeJson(newFieldValues, response.data._entities[0])).ensureType();
+
+        }
+        return newFieldValues;
+    }
 }

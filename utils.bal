@@ -4,11 +4,7 @@ import ballerina/jballerina.java;
 isolated function wrapWithEntityRepresentation(string typename, map<json>[] fieldsRequiredToFetch, string fieldQuery) returns string {
     string[] representations = [];
     foreach var entry in fieldsRequiredToFetch {
-        string keyValueString = "";
-        foreach var [key, value] in entry.entries() {
-            keyValueString = keyValueString + string `${key}: "${value.toString()}" `;
-
-        }
+        string keyValueString = getKeyValueString(entry);
         representations.push(string `{ __typename: "${typename}", ${keyValueString} }`);
     }
     return string `query{
@@ -20,6 +16,20 @@ isolated function wrapWithEntityRepresentation(string typename, map<json>[] fiel
             }
         }
     }`;
+}
+
+// Prepare key value string. 
+isolated function getKeyValueString(map<json> fieldMap) returns string {
+    string keyValueString = "";
+    foreach var [key, value] in fieldMap.entries() {
+        if value is map<json> {
+            keyValueString = keyValueString + string `${key}: { ${getKeyValueString(value)} } `;
+        }
+        else {
+            keyValueString = keyValueString + string `${key}: "${value.toString()}" `;
+        }
+    }
+    return keyValueString;
 }
 
 // Prepare query string to resolve by query.
