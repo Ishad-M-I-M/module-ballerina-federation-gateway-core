@@ -35,19 +35,23 @@ public class Resolver {
         // Resolve the fields which are not resolved yet.
         while self.toBeResolved.length() > 0 {
             unResolvableField 'record = self.toBeResolved.shift();
+            string[] path = self.getEffectivePath('record.'field);
 
             // Check whether the field need to be resolved is nested by zero or one level.
             // These can be resolved and composed directly to the result.
-            if 'record.'field.getPath().slice(self.currentPath.length()).filter(e => e == "@").length() < 1 {
+            if path.filter(e => e == "@").length() == 0 || (path.filter(e => e == "@").length() == 1 &&
+            path.indexOf("@") == path.length() - 2) {
 
                 string clientName = self.queryPlan.get('record.parent).fields.get('record.'field.getName()).'client;
 
                 graphql:Client 'client = self.clients.get(clientName);
 
-                // Get the ids from the current results to resolve by reference.
-                string[] path = self.getEffectivePath('record.'field);
-
-                path = path.slice(0, path.length() - 1);
+                if path.indexOf("@") is () {
+                    path = path.slice(0, path.length() - 1);
+                }
+                else {
+                    path = path.slice(0, path.length() - 2);
+                }
 
                 requiresFieldRecord[]? requiredFields = self.queryPlan.get('record.parent).fields.get('record.'field.getName()).requires;
 
@@ -91,8 +95,6 @@ public class Resolver {
                 string[] currentPath = self.currentPath.clone();
                 json pointer = self.result;
                 string pointerType = self.resultType;
-
-                string[] path = self.getEffectivePath('record.'field);
                 string element = path.shift();
                 currentPath.push(element);
 
